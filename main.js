@@ -10,7 +10,9 @@ function getAllKeys(results, start, length) {
     const keys = {};
     function saveKeys(result) {
         for (const key in result) {
-            if (!keys[key]) { keys[key] = true; }
+            if(key.charAt(0) === '#') {
+                console.warn(`Found a key: ${key} beginning with '#'. This indicates and apify debug key that you should probably not be sending to be saved.`)
+            } else if (!keys[key]) { keys[key] = true; }
         }
     }
 
