@@ -138,7 +138,7 @@ Apify.main(async () => {
 
         if (datasetId) {
             await loadItems(datasetId, async (results) => {
-                console.log(`Found results from dataset id: ${{datasetId}}`)
+                console.log(`Found results from dataset id: ${datasetId}`)
                 console.log(JSON.stringify(results))
                 await processResults(poolQuery, results);
             });
