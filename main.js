@@ -59,11 +59,12 @@ async function createInsert(results, start, length, table, staticParam, poolQuer
             if (result[key]) {
                 if (typeof result[key] === 'number') {
                     val = result[key];
-                } else {
+                } else if (result[key].replace){
                     val = "'" + result[key].replace(/'/g, "''") + "'";
+                } else {
+                    console.warn(`Couldn't parse value: ${result[key]} for key ${key}. Skipping.`)
                 }
             } else {
-                val = 'NULL';
             }
             valueStrings += index > 0 ? (', ' + val) : val;
         });
@@ -139,7 +140,7 @@ Apify.main(async () => {
         if (datasetId) {
             await loadItems(datasetId, async (results) => {
                 console.log(`Found results from dataset id: ${{datasetId}}`)
-                console.log(JSON.stringify(results))
+                console.log(JSON.stringify(results, null, 2))
                 await processResults(poolQuery, results);
             });
         } else if (rows) {
