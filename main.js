@@ -7,25 +7,37 @@ const createProxyTunnel = require('./handle-proxy-url.js');
 
 // get all unique keys from an array of objects
 function getAllKeys(results, start, length) {
+    const apifyDebugKeys = ['#error', '#debug']
     const keys = {};
+
     function saveKeys(result) {
         for (const key in result) {
-            if(key.charAt(0) === '#') {
-                console.warn(`Found a key: ${key} beginning with '#'. This indicates and apify debug key that you should probably not be sending to be saved.`)
-            } else if (!keys[key]) { keys[key] = true; }
+            if (!keys[key]) {
+                keys[key] = true;
+            }
         }
     }
 
     const end = Math.min(start + length, results.length);
-    for (let i = start; i < end; i++) { saveKeys(results[i]); }
+    for (let i = start; i < end; i++) {
+        saveKeys(results[i]);
+    }
 
-    return Object.keys(keys);
+    return Object.keys(keys).filter((key) => {
+        if (apifyDebugKeys.includes(key)) {
+            console.warn(`Found a key: ${key} beginning with '#'. This indicates an apify debug key that you should probably not be sending to be saved.`)
+            return false
+        }
+        return true
+    });
 }
 
 // iterate items from dataset
 const loadItems = async (datasetId, process, offset) => {
     const limit = 1000;
-    if (!offset) { offset = 0; }
+    if (!offset) {
+        offset = 0;
+    }
     console.log('starting to load from dataset');
     const newItems = await Apify.client.datasets.getItems({
         datasetId,
@@ -53,6 +65,7 @@ async function createInsert(results, start, length, table, staticParam, poolQuer
     const keyString = keys.join(', ') + (spKeys ? `, ${spKeys}` : '');
 
     let valueStrings = '';
+
     // add row to the SQL insert
     function addValueString(result) {
         valueStrings += valueStrings.length > 0 ? ', (' : '(';
@@ -61,7 +74,7 @@ async function createInsert(results, start, length, table, staticParam, poolQuer
             if (result[key]) {
                 if (typeof result[key] === 'number') {
                     val = result[key];
-                } else if (result[key].replace){
+                } else if (result[key].replace) {
                     val = "'" + result[key].replace(/'/g, "''") + "'";
                 } else {
                     console.warn(`Couldn't parse value: ${result[key]} for key ${key}. Skipping.`)
@@ -70,7 +83,9 @@ async function createInsert(results, start, length, table, staticParam, poolQuer
             }
             valueStrings += index > 0 ? (', ' + val) : val;
         });
-        if (spValues) { valueStrings += `, ${spValues}`; }
+        if (spValues) {
+            valueStrings += `, ${spValues}`;
+        }
         valueStrings += ')';
     }
 
@@ -80,8 +95,14 @@ async function createInsert(results, start, length, table, staticParam, poolQuer
         const result = results[i];
         if (existsAttr && result[existsAttr] !== undefined) {
             const exists = await checkIfExists(poolQuery, existsAttr, result[existsAttr], table);
-            if (exists) { console.log(`object already exists, will not be inserted: ${  JSON.stringify(result)}`); } else { addValueString(result); }
-        } else { addValueString(result); }
+            if (exists) {
+                console.log(`object already exists, will not be inserted: ${JSON.stringify(result)}`);
+            } else {
+                addValueString(result);
+            }
+        } else {
+            addValueString(result);
+        }
     }
 
     // combine the SQL insert
@@ -96,7 +117,7 @@ Apify.main(async () => {
 
     const datasetId = input.resource ? input.resource.defaultDatasetId : input.datasetId;
 
-    const { rows, connection, table, staticParam, existsAttr, proxyUrl } = input;
+    const {rows, connection, table, staticParam, existsAttr, proxyUrl} = input;
 
     if (!datasetId && !rows) {
         throw new Error('Missing "datasetId" or "rows" in INPUT!');
@@ -112,7 +133,8 @@ Apify.main(async () => {
     connection.connectionLimit = 10;
 
     if (proxyUrl) {
-        const { newHost, newPort } = await createProxyTunnel(proxyUrl, connection.host);;
+        const {newHost, newPort} = await createProxyTunnel(proxyUrl, connection.host);
+        ;
         connection.host = newHost;
         connection.port = newPort;
         console.log(`New proxied connection details:`);
@@ -127,15 +149,17 @@ Apify.main(async () => {
             try {
                 const records = await poolQuery(insert);
                 console.dir(records);
-            } catch (e) { console.log(e); }
+            } catch (e) {
+                console.log(e);
+            }
         }
     }
 
     try {
         // connect to MySQL and promisify it's methods
         const pool = sql.createPool(connection);
-        const poolQuery = Promise.promisify(pool.query, { context: pool });
-        const poolEnd = Promise.promisify(pool.end, { context: pool });
+        const poolQuery = Promise.promisify(pool.query, {context: pool});
+        const poolEnd = Promise.promisify(pool.end, {context: pool});
 
         // loop through pages of results and insert them to MySQL
 
@@ -151,5 +175,7 @@ Apify.main(async () => {
 
         // disconnect from MySQL
         await poolEnd();
-    } catch (e) { console.log(e); }
+    } catch (e) {
+        console.log(e);
+    }
 });
