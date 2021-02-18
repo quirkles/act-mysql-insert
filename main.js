@@ -74,12 +74,13 @@ async function createInsert(results, start, length, table, staticParam, poolQuer
             if (result[key]) {
                 if (typeof result[key] === 'number') {
                     val = result[key];
-                } else if (result[key].replace) {
+                } else if (result[key].replace && result[key].length) {
                     val = "'" + result[key].replace(/'/g, "''") + "'";
                 } else {
                     console.warn(`Couldn't parse value: ${result[key]} for key ${key}. Skipping.`)
                 }
             } else {
+                val = 'NULL';
             }
             valueStrings += index > 0 ? (', ' + val) : val;
         });
